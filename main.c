@@ -9,8 +9,8 @@
 
 #define BR_SHADERS_IMPLEMENTATION
 #define BR_HAS_SHADER_RELOAD 1
-#define simple_fs "simple.fs"
-#define simple_vs "simple.vs"
+#define simple_fs "shaders/simple.fs"
+#define simple_vs "shaders/simple.vs"
 #define BR_ALL_SHADERS(X, X_VEC, X_BUF) \
   X(simple, 1024,                       \
       X_VEC(color, 3)                   \
@@ -263,102 +263,6 @@ void app2(unsigned char* font_data) {
   }
 }
 
-void app(unsigned char* font_data) {
-  unsigned char pixels[IMG_SIZE][IMG_SIZE] = {0};
-  stbtt_pack_context cntx = {0};
-  stbtt_packedchar charz[CHARS] = {0};
-
-  int res = stbtt_PackBegin(&cntx, &pixels[0][0], IMG_SIZE, IMG_SIZE, 0, 2, NULL);
-  if (res == 0) fprintf(stderr, "Failed to pack begin\n");
-  //stbtt_PackSetOversampling(&cntx, 2, 2);
-  res = stbtt_PackFontRange(&cntx, font_data, 0, 72.f, 'A', CHARS, &charz[0]);
-
-  InitWindow(800, 400, "Init");
-  SetWindowState(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
-  SetTargetFPS(60);
-  br_shaders_t br = br_shaders_malloc();
-
-  unsigned int textureId = rlLoadTexture(pixels, IMG_SIZE, IMG_SIZE, RL_PIXELFORMAT_UNCOMPRESSED_GRAYSCALE, 1);
-
-  Texture tex = {
-      .id = textureId,
-      .width = IMG_SIZE,
-      .height = IMG_SIZE,
-      .mipmaps = 1,
-      .format = RL_PIXELFORMAT_UNCOMPRESSED_GRAYSCALE
-  };
-
-  rlDisableBackfaceCulling();
-  br.reload->path = ".";
-  br_shaders_start_refreshing(br);
-  
-  int f = 0;
-  float cury = 72.0f;
-  float initx = 0.f;
-  float dx = 0.0f, dy = 0.0f;
-
-  while (WindowShouldClose() == false) {
-    Vector2* pos = (Vector2*)br.simple->pos_vbo;
-    Vector2* tpos = (Vector2*)br.simple->tex_pos_vbo;
-    int mod = 2;
-
-
-    if (IsKeyDown(KEY_DOWN)) dy -= 1.1f;
-    if (IsKeyDown(KEY_UP)) dy += 1.1f;
-    if (IsKeyDown(KEY_LEFT)) dx -= 1.1f;
-    if (IsKeyDown(KEY_RIGHT)) dx += 1.1f;
-    Vector2 mwd = GetMouseWheelMoveV();
-    initx += mwd.x * 20.;
-    cury += mwd.y * 20.f;
-
-    cury += dy * GetFrameTime();
-    initx += dx * GetFrameTime();
-    float curx = (int)initx;
-    dx *= 0.9;
-    dy *= 0.9;
-
-    BeginDrawing();
-    ClearBackground(BLACK);
-    if (br.reload->should_reload == true) br_shaders_refresh(br);
-    //DrawRectangle(0, 0, 100, 100, RED);
-    br.simple->uvs.resolution_uv = (Vector2) { (float)GetScreenWidth(), (float)GetScreenHeight() };
-    br.simple->uvs.atlas_uv = textureId;
-    int len_pos = 0, len_tex = 0;
-    char text[20];
-    sprintf(text, "%f", cury);
-    DrawText(text, initx + 100, cury + 100, 72, WHITE);
-    for (int i = 0; i < CHARS; ++i) {
-      {
-        stbtt_aligned_quad q;
-        stbtt_GetPackedQuad(&charz[i], 512, 512,
-                                       0,
-                                       &curx, &cury,
-                                       &q,      // output: quad to draw
-                                       false);
-        pos[len_pos++] = (Vector2) { q.x0, q.y0 };
-        pos[len_pos++] = (Vector2) { q.x0, q.y1 };
-        pos[len_pos++] = (Vector2) { q.x1, q.y1 };
-        pos[len_pos++] = (Vector2) { q.x1, q.y1 };
-        pos[len_pos++] = (Vector2) { q.x0, q.y0 };
-        pos[len_pos++] = (Vector2) { q.x1, q.y0 };
-        tpos[len_tex++] = (Vector2) { q.s0, q.t0 };
-        tpos[len_tex++] = (Vector2) { q.s0, q.t1 };
-        tpos[len_tex++] = (Vector2) { q.s1, q.t1 };
-        tpos[len_tex++] = (Vector2) { q.s1, q.t1 };
-        tpos[len_tex++] = (Vector2) { q.s0, q.t0 };
-        tpos[len_tex++] = (Vector2) { q.s1, q.t0 };
-        
-      }
-      br.simple->len += 2;
-    }
-    br_shader_simple_draw(br.simple);
-    if (f == 0) DrawTexture(tex, 100, 100, WHITE);
-    br.simple->len = 0;
-    EndDrawing();
-    f++;
-  }
-}
-
 int main() {
   FILE* f = fopen("/usr/share/fonts/noto/NotoSans-Regular.ttf", "rb");
   unsigned char* data = read_entire_file(f);
@@ -366,4 +270,6 @@ int main() {
   app2(data);
   return 0;
 }
+
 // gcc -ggdb main.c -lm -lraylib && ./a.out
+// gcc -O3 main.c -lm -lraylib && ./a.out

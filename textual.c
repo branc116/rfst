@@ -1,5 +1,5 @@
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+#include "external/stb_truetype.h"
 
 #include "stdlib.h"
 #include "stdio.h"
