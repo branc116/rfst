@@ -1,11 +1,11 @@
 #define STB_RECT_PACK_IMPLEMENTATION
-#include "stb_rect_pack.h"
+#include "external/stb_rect_pack.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+#include "external/stb_truetype.h"
 
 #define STB_DS_IMPLEMENTATION
-#include "stb_ds.h"
+#include "external/stb_ds.h"
 
 #define BR_SHADERS_IMPLEMENTATION
 #define BR_HAS_SHADER_RELOAD 1
@@ -20,7 +20,7 @@
       X_BUF(pos, 2)                     \
       X_BUF(tex_pos, 2)                 \
     )
-#include "br_shaders.h"
+#include "external/br_shaders.h"
 
 #include "raylib.h"
 
