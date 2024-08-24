@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #define STB_RECT_PACK_IMPLEMENTATION
 #include "external/stb_rect_pack.h"
 
@@ -22,7 +24,7 @@
     )
 #include "external/br_shaders.h"
 
-#include "raylib.h"
+#include "external/raylib.h"
 
 #include "stdlib.h"
 #include "stdio.h"
@@ -149,7 +151,7 @@ void br_text_renderer_dump(br_text_renderer_t* r) {
         .mipmaps = 1,
         .format = RL_PIXELFORMAT_UNCOMPRESSED_GRAYSCALE
     };
-    DrawTexture(tex, 0, 0, WHITE);
+    DrawTexture(tex, 10000, 10000, WHITE);
   }
   br_shader_simple_t* simp = *r->shader;
   simp->uvs.resolution_uv = (Vector2) { (float)GetScreenWidth(), (float)GetScreenHeight() };
@@ -219,7 +221,10 @@ void br_text_renderer_push(br_text_renderer_t* r, Vector2 loc, const char* text,
   }
 }
 
+char* decode_utf8(unsigned char* bytes) { return (char*)bytes; }
+
 void app2(unsigned char* font_data) {
+  SetWindowState(FLAG_MSAA_4X_HINT);
   InitWindow(800, 400, "Init");
   SetWindowState(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
   SetTargetFPS(60);
@@ -241,15 +246,15 @@ void app2(unsigned char* font_data) {
     if (false == IsKeyDown(KEY_T)) {
       text_pos_y += GetMouseWheelMove() * 10;
       br_text_renderer_push(&r, (Vector2) {100, 100}, "hello my friend", size);
-      br_text_renderer_push(&r, (Vector2) {100, text_pos_y}, text, size);
+      br_text_renderer_push(&r, (Vector2) {100, text_pos_y}, decode_utf8(text), size);
       if (IsKeyDown(KEY_DOWN)) size -= 1;
       if (IsKeyDown(KEY_UP)) size += 1;
       br_text_renderer_dump(&r);
     } else {
-      if (IsKeyDown(KEY_LEFT)) tex_pos_x -= 1;
-      if (IsKeyDown(KEY_RIGHT)) tex_pos_x += 1;
-      if (IsKeyDown(KEY_DOWN)) tex_pos_y -= 1;
-      if (IsKeyDown(KEY_UP)) tex_pos_y += 1;
+      if (IsKeyDown(KEY_LEFT)) tex_pos_x -= 10;
+      if (IsKeyDown(KEY_RIGHT)) tex_pos_x += 10;
+      if (IsKeyDown(KEY_DOWN)) tex_pos_y -= 10;
+      if (IsKeyDown(KEY_UP)) tex_pos_y += 10;
       Texture tex = {
           .id = r.bitmap_texture_id,
           .width = r.bitmap_pixels_width,
@@ -264,7 +269,14 @@ void app2(unsigned char* font_data) {
 }
 
 int main() {
-  FILE* f = fopen("/usr/share/fonts/noto/NotoSans-Regular.ttf", "rb");
+  const char* path = 
+#if defined(_WIN32)
+	  "C:/Windows/Fonts/arial.ttf"
+#else
+	  "/usr/share/fonts/noto/NotoSans-Regular.ttf"
+#endif
+	  ;
+  FILE* f = fopen(path, "rb");
   unsigned char* data = read_entire_file(f);
   //new_api(data);
   app2(data);
@@ -273,3 +285,5 @@ int main() {
 
 // gcc -ggdb main.c -lm -lraylib && ./a.out
 // gcc -O3 main.c -lm -lraylib && ./a.out
+// C:\cygwin64\bin\gcc.exe -O3 main.c -lm
+// clang -L .\external\lib -lraylib main.c

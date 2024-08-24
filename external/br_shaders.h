@@ -18,10 +18,10 @@ extern "C" {
 #  define simple_fs "simple.fs"
 #  define simple_vs "simple.vs"
 
-#  define BR_ALL_SHADERS(X, X_VEC, X_BUF) \
-      X(simple, 1024,               \
+#  define BR_ALL_SHADERS(X, X_VEC, X_BUF)  \
+      X(simple, 1024,                      \
          X_VEC(m_mvp, 16),                 \
-                                          \
+                                           \
          X_BUF(vertexPosition, 3)          \
          X_BUF(vertexNormal, 3)            \
          X_BUF(vertexColor, 3)             \
@@ -316,6 +316,29 @@ void br_shaders_start_refreshing(br_shaders_t shaders) {
   if (pthread_create(&(pthread_t) {}, &(pthread_attr_t) { 0 }, br_watch_shader_change, shaders.reload)) {
     LOGE("While creating thread %d:`%s`\n", errno, strerror(errno));
   }
+}
+
+#elif defined(__CYGWIN__)
+#include <pthread.h>
+#include <errno.h>
+static void* br_watch_shader_change(void* gv) {
+  //TODO
+  return NULL;
+}
+
+void br_shaders_start_refreshing(br_shaders_t shaders) {
+  if (pthread_create(&(pthread_t) {0}, &(pthread_attr_t) { 0 }, br_watch_shader_change, shaders.reload)) {
+    LOGE("While creating thread %d:`%s`\n", errno, strerror(errno));
+  }
+}
+#elif defined(__MSVC__) || defined(_WIN32)
+static void* br_watch_shader_change(void* gv) {
+  //TODO
+  return NULL;
+}
+
+void br_shaders_start_refreshing(br_shaders_t shaders) {
+  //TODO
 }
 
 #else
