@@ -17,6 +17,8 @@
   X(simple, 1024,                       \
       X_VEC(color, 3)                   \
       X_VEC(resolution, 2)              \
+      X_VEC(sub_pix_aa_map, 3)          \
+      X_VEC(sub_pix_aa_scale, 1)        \
       X_VEC(atlas, TEX),                \
                                         \
       X_BUF(pos, 2)                     \
@@ -26,8 +28,8 @@
 
 #include "external/raylib.h"
 
-#include "stdlib.h"
-#include "stdio.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 #define IMG_SIZE 512
 #define CHARS 30
@@ -35,9 +37,10 @@
 unsigned char* read_entire_file(FILE* f) {
   fseek(f, 0, SEEK_END);
   size_t len = ftell(f);
-  unsigned char* buff = malloc(len);
+  unsigned char* buff = malloc(len + 1);
   fseek(f, 0, SEEK_SET);
   fread(buff, 1, len, f);
+  buff[len] = '\0';
   return buff;
 }
 
@@ -73,7 +76,6 @@ typedef struct {
   stbtt_pack_context pack_cntx;
   unsigned char* font_data;
 } br_text_renderer_t;
-
 
 br_text_renderer_t br_text_renderer_malloc(int bitmap_width, int bitmap_height, unsigned char* font_data, br_shader_simple_t** shader) {
   br_text_renderer_t renderer = {
@@ -162,14 +164,13 @@ void br_text_renderer_dump(br_text_renderer_t* r) {
 
 
 void br_text_renderer_push(br_text_renderer_t* r, Vector2 loc, const char* text, int font_size) {
-  int i = stbds_hmgeti(r->sizes, font_size);
+  int size_index = stbds_hmgeti(r->sizes, font_size);
   float og_x = loc.x;
-  if (i == -1) {
+  if (size_index == -1) {
     for (const char* c = text; *c != '\0'; ++c) {
       stbds_hmput(r->to_bake, ((char_sz){.size = font_size, .ch = *c}), 0);
     }
   } else {
-    size_to_font stf = r->sizes[i];
     br_shader_simple_t* simp = *r->shader;
     int len_pos = simp->len * 3;
     int len_tex = simp->len * 3;
@@ -177,7 +178,7 @@ void br_text_renderer_push(br_text_renderer_t* r, Vector2 loc, const char* text,
     Vector2* tpos = (void*)simp->tex_pos_vbo;
 
     for (const char* c = text; *c != '\0'; ++c) {
-      int i = stbds_hmgeti(stf.value, *c);
+      int char_index = stbds_hmgeti(r->sizes[size_index].value, *c);
       if (*c == '\n') {
         loc.y += font_size * 1.1;
         loc.x = og_x;
@@ -186,7 +187,7 @@ void br_text_renderer_push(br_text_renderer_t* r, Vector2 loc, const char* text,
       if (*c == '\r') {
         continue;
       }
-      if (i == -1) {
+      if (char_index == -1) {
         stbds_hmput(r->to_bake, ((char_sz){.size = font_size, .ch = *c}), 0);
       } else {
         if (simp->len * 3 >= simp->cap) {
@@ -197,7 +198,7 @@ void br_text_renderer_push(br_text_renderer_t* r, Vector2 loc, const char* text,
           tpos = (void*)simp->tex_pos_vbo;
         }
         stbtt_aligned_quad q;
-        stbtt_packedchar ch = stf.value[i].value;
+        stbtt_packedchar ch = r->sizes[size_index].value[char_index].value;
         stbtt_GetPackedQuad(&ch, r->bitmap_pixels_width, r->bitmap_pixels_height,
                                        0,
                                        &loc.x, &loc.y,
@@ -231,13 +232,26 @@ void app2(unsigned char* font_data) {
   br_shaders_t br = br_shaders_malloc();
   br_text_renderer_t r = br_text_renderer_malloc(4*1024, 4*1024, font_data, &br.simple);
   rlDisableBackfaceCulling();
-  int size = 15;
+  int size = 16;
   int tex_pos_x = 0;
   int tex_pos_y = 0;
   int text_pos_y = 0;
   FILE* f = fopen(__FILE__, "rb");
   unsigned char* text = read_entire_file(f);
+  br.reload->path = "./shaders/";
+  br.reload->should_stop = false;
   br_shaders_start_refreshing(br);
+  Vector3 sub_aa_maps[6] = {
+    {-1, 0, 1},
+    {1, 0, -1},
+    {-1, 1, 0},
+    {1, -1, 0},
+    {0, -1, 1},
+    {0, 1, -1},
+  };
+  int sub_aa_map_i = 0;
+  float sub_aa_scale = 0.5f;
+  char buff[1024];
 
   while (WindowShouldClose() == false) {
     BeginDrawing();
@@ -245,10 +259,21 @@ void app2(unsigned char* font_data) {
     if (br.reload->should_reload == true) br_shaders_refresh(br);
     if (false == IsKeyDown(KEY_T)) {
       text_pos_y += GetMouseWheelMove() * 10;
-      br_text_renderer_push(&r, (Vector2) {100, 100}, "hello my friend", size);
-      br_text_renderer_push(&r, (Vector2) {100, text_pos_y}, decode_utf8(text), size);
       if (IsKeyDown(KEY_DOWN)) size -= 1;
       if (IsKeyDown(KEY_UP)) size += 1;
+      if (IsKeyPressed(KEY_M)) sub_aa_map_i = (sub_aa_map_i + 1) % 6;
+      if (IsKeyDown(KEY_J)) sub_aa_scale -= 0.01f;
+      if (IsKeyDown(KEY_K)) sub_aa_scale += 0.01f;
+
+      Vector3 map = sub_aa_maps[sub_aa_map_i];
+      float y = 100;
+      br_text_renderer_push(&r, (Vector2) {300, text_pos_y}, decode_utf8(text), size);
+      memset(buff, 0, sizeof(buff));
+      sprintf(buff, "Size: %d", size)                         ; br_text_renderer_push(&r, (Vector2) {100, y += 32 }, buff, 16);
+      sprintf(buff, "aa_map: %.2f, %.2f, %.2f", map.x, map.y, map.z); br_text_renderer_push(&r, (Vector2) {100, y += 32}, buff, 16);
+      sprintf(buff, "aa_scale: %.3f", sub_aa_scale)             ; br_text_renderer_push(&r, (Vector2) {100, y += 32}, buff, 16);
+      br.simple->uvs.sub_pix_aa_map_uv = map;
+      br.simple->uvs.sub_pix_aa_scale_uv = sub_aa_scale;
       br_text_renderer_dump(&r);
     } else {
       if (IsKeyDown(KEY_LEFT)) tex_pos_x -= 10;
@@ -283,7 +308,7 @@ int main() {
   return 0;
 }
 
-// gcc -ggdb main.c -lm -lraylib && ./a.out
+// gcc -fsanitize=address -ggdb main.c -lm -lraylib && ./a.out
 // gcc -O3 main.c -lm -lraylib && ./a.out
 // C:\cygwin64\bin\gcc.exe -O3 main.c -lm
 // clang -L .\external\lib -lraylib main.c

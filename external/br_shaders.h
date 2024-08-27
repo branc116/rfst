@@ -50,6 +50,7 @@ extern "C" {
 #endif
 
 
+#define VEC_TYPE1 float
 #define VEC_TYPE2 Vector2
 #define VEC_TYPE3 Vector3
 #define VEC_TYPE4 Vector4
@@ -67,6 +68,7 @@ BR_ALL_SHADERS(X, X_U, NOP2)
 #undef VEC_TYPE4
 #undef VEC_TYPE3
 #undef VEC_TYPE2
+#undef VEC_TYPE1
 
 #define X_U(NAME, DIM) int NAME ## _u;
 #define X_B(NAME, DIM)                \
@@ -302,7 +304,7 @@ static void* br_watch_shader_change(void* gv) {
   int fd = inotify_init();
   uint32_t buff[128];
   br_shader_reload_t* refresh = gv;
-  inotify_add_watch(fd, refresh->path, IN_MODIFY | IN_CLOSE_WRITE);
+  inotify_add_watch(fd, "./shaders", IN_MODIFY | IN_CLOSE_WRITE);
   while(refresh->should_stop == false) {
     read(fd, buff, sizeof(buff));
     printf("DIRTY SHADERS\n");
